@@ -1,122 +1,69 @@
-let users = JSON.parse(localStorage.getItem('users')) || [];
-const transactions = JSON.parse(localStorage.getItem('transactions')) || [];
-let currentUser = null;
+const users = JSON.parse(localStorage.getItem('users')) || [];
 
 function register() {
-    const username = document.getElementById('regUsername').value.trim();
-    const password = document.getElementById('regPassword').value.trim();
-
-    if (!username || !password) {
-        alert('Пожалуйста, заполните все поля.');
-        return;
+    const username = document.getElementById('reg-username').value;
+    if (username && !users.find(user => user.username === username)) {
+        const newUser = {
+            username: username,
+            currency: 10000,
+            registrationDate: new Date().toISOString()
+        };
+        users.push(newUser);
+        localStorage.setItem('users', JSON.stringify(users));
+        alert('Регистрация успешна!');
+        updateUserList();
+    } else {
+        alert('Никнейм уже занят или пуст!');
     }
-
-    const existingUser = users.find(u => u.username === username);
-    if (existingUser) {
-        alert('Пользователь с таким именем уже существует.');
-        return;
-    }
-
-    const newUser = { username, password, balance: 10000, registrationDate: new Date() };
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-    alert('Регистрация успешна! Ваш баланс: 10000');
-    document.getElementById('regUsername').value = '';
-    document.getElementById('regPassword').value = '';
 }
 
 function login() {
-    const username = document.getElementById('loginUsername').value.trim();
-    const password = document.getElementById('loginPassword').value.trim();
-    const user = users.find(u => u.username === username && u.password === password);
-
+    const username = document.getElementById('login-username').value;
+    const user = users.find(user => user.username === username);
     if (user) {
-        currentUser = user;
         document.getElementById('auth').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
-        document.getElementById('userDisplay').textContent = `Добро пожаловать, ${user.username}!`;
-        document.getElementById('balanceDisplay').textContent = user.balance;
-        displayUsers();
-        displayTransactions();
+        document.getElementById('user-info').style.display = 'block';
+        document.getElementById('welcome-message').innerText = `Добро пожаловать, ${user.username}!`;
+        document.getElementById('currency').innerText = user.currency;
+        updateUserList();
     } else {
-        alert('Неверное имя пользователя или пароль');
+        alert('Пользователь не найден!');
     }
 }
 
-function displayUsers() {
-    const userList = document.getElementById('userList');
-    userList.innerHTML = '';
-    users.sort((a, b) => new Date(a.registrationDate) - new Date(b.registrationDate)).forEach(user => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span class="username" onclick="viewProfile('${user.username}')">${user.username}</span>`;
-        userList.appendChild(li);
-    });
+function logout() {
+    document.getElementById('auth').style.display = 'block';
+    document.getElementById('user-info').style.display = 'none';
 }
 
-function displayTransactions() {
-    const transactionHistory = document.getElementById('transactionHistory');
-    transactionHistory.innerHTML = '';
-    transactions.forEach(transaction => {
+function transfer() {
+    const recipientUsername = document.getElementById('transfer-username').value;
+    const amount = parseInt(document.getElementById('transfer-amount').value);
+    const senderUsername = users.find(user => user.username === document.getElementById('welcome-message').innerText.split(', ')[1]);
+    
+    const recipient = users.find(user => user.username === recipientUsername);
+    if (recipient && senderUsername.currency >= amount && amount > 0) {
+        senderUsername.currency -= amount;
+        recipient.currency += amount;
+        localStorage.setItem('users', JSON.stringify(users));
+        alert('Перевод успешен!');
+        document.getElementById('currency').innerText = senderUsername.currency;
+    } else {
+        alert('Ошибка перевода!');
+    }
+}
+
+function updateUserList() {
+    const list = document.getElementById('user-list');
+    list.innerHTML = '';
+    users.sort((a, b) => new Date(a.registrationDate) - new Date(b.registrationDate)).forEach((user, index) => {
         const li = document.createElement('li');
-        li.textContent = `От: ${transaction.from}, Кому: ${transaction.to}, Сумма: ${transaction.amount}`;
-        transactionHistory.appendChild(li);
+        li.innerHTML = `${index + 1}. <a href="#" onclick="viewProfile('${user.username}')">${user.username}</a>`;
+        list.appendChild(li);
     });
 }
 
 function viewProfile(username) {
-    const user = users.find(u => u.username === username);
-    if (user) {
-        document.getElementById('profileUsername').textContent = user.username;
-        document.getElementById('profileBalance').textContent = user.balance;
-        document.getElementById('profile').style.display = 'block';
-    }
+    const user = users.find(user => user.username === username);
+    alert(`Профиль пользователя:\nНикнейм: ${user.username}\nВиртуальная валюта: ${user.currency}`);
 }
-
-function closeProfile() {
-    document.getElementById('profile').style.display = 'none';
-}
-
-function logout() {
-    currentUser = null;
-    document.getElementById('auth').style.display = 'block';
-    document.getElementById('dashboard').style.display = 'none';
-    document.getElementById('loginUsername').value = '';
-    document.getElementById('loginPassword').value = '';
-}
-
-function transfer() {
-    const recipient = document.getElementById('recipient').value.trim();
-    const amount = parseFloat(document.getElementById('amount').value);
-    const recipientUser = users.find(u => u.username === recipient);
-
-    if (recipientUser && amount > 0 && currentUser.balance >= amount) {
-        currentUser.balance -= amount;
-        recipientUser.balance += amount;
-        transactions.push({ from: currentUser.username, to: recipientUser.username, amount });
-        localStorage.setItem('users', JSON.stringify(users));
-        localStorage.setItem('transactions', JSON.stringify(transactions));
-        document.getElementById('balanceDisplay').textContent = currentUser.balance;
-        displayTransactions();
-        alert('Перевод успешен!');
-    } else {
-        alert('Ошибка перевода. Проверьте данные.');
-    }
-}
-
-function changeUsername() {
-    const newUsername = document.getElementById('newUsername').value.trim();
-    if (newUsername) {
-        const existingUser = users.find(u => u.username === newUsername);
-        if (!existingUser) {
-            currentUser.username = newUsername;
-            alert('Никнейм изменен!');
-            displayUsers();
-            localStorage.setItem('users', JSON.stringify(users));
-        } else {
-            alert('Такое имя пользователя уже занято.');
-        }
-    } else {
-        alert('Введите новый никнейм.');
-    }
-}
-
